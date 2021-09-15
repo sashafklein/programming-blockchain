@@ -50,21 +50,36 @@ class NetworkEnvelope:
             expected_magic = NETWORK_MAGIC
         if magic != expected_magic:
             raise RuntimeError(f'magic is not right {magic.hx()} vs {expected_magic.hex()}')
+
         # command 12 bytes, strip the trailing 0's using .strip(b'\x00')
+        command = s.read(12).strip(b'\x00')
         # payload length 4 bytes, little endian
+        payload_length = little_endian_to_int(s.read(4))
         # checksum 4 bytes, first four of hash256 of payload
+        checksum = s.read(4)
         # payload is of length payload_length
+        payload = s.read(payload_length)
+        
         # verify checksum
-        raise NotImplementedError
+        if checksum != hash256(payload)[:4]:
+            raise RuntimeError('Checksum doesn\'t match')
+
+        return cls(command, payload, testnet)
 
     def serialize(self):
         '''Returns the byte serialization of the entire network message'''
         # add the network magic using self.magic
+        result = self.magic
+
         # command 12 bytes, fill leftover with b'\x00' * (12 - len(self.command))
+        result += self.command + b'\x00' * (12 - len(self.command))
         # payload length 4 bytes, little endian
+        result += int_to_little_endian(len(self.payload), 4)
         # checksum 4 bytes, first four of hash256 of payload
+        result += hash256(self.payload)[:4]
         # payload
-        raise NotImplementedError
+        result += self.payload
+        return result
 
     def stream(self):
         '''Returns a stream for parsing the payload'''
@@ -228,10 +243,17 @@ class GetHeadersMessage:
     def serialize(self):
         '''Serialize this message to send over the network'''
         # protocol version is 4 bytes little-endian
+        result = int_to_little_endian(self.version, 4)
+
         # number of hashes is a varint
+        result += encode_varint(self.num_hashes)
+        
         # start block is in little-endian
+        result += self.start_block[::-1] 
+        
         # end block is also in little-endian
-        raise NotImplementedError
+        result += self.end_block[::-1] 
+        return result
 
 
 class GetHeadersMessageTest(TestCase):
@@ -251,13 +273,24 @@ class HeadersMessage:
     @classmethod
     def parse(cls, s):
         # number of headers is in a varint
+        num_headers = read_varint(s)
+        
         # initialize the headers array
+        headers = []
+        
         # loop through number of headers times
+        for _ in range(num_headers): 
             # add a header to the headers array by using Block.parse_header(s)
+            header = Block.parse_header(s)
+            headers.append(header)
+            
             # read the next varint (num_txs)
-            # num_txs should be 0 or raise a RuntimeError
-        # return a class instance
-        raise NotImplementedError
+            num_txs = read_varint(s)
+            
+            if num_txs != 0:
+                raise RuntimeError
+
+        return cls(headers)
 
 
 class HeadersMessageTest(TestCase):
@@ -322,9 +355,11 @@ class SimpleNode:
     def handshake(self):
         '''Do a handshake with the other node. Handshake is sending a version message and getting a verack back.'''
         # create a version message
+        version = VersionMessage()
         # send the message
+        self.send(version)
         # wait for a verack message
-        raise NotImplementedError
+        return self.wait_for(VerAckMessage).command
 
     def send(self, message):
         '''Send a message to the connected node'''

@@ -645,10 +645,13 @@ def op_sha256(stack):
 
 
 def op_hash160(stack):
-    # check to see if there's at least 1 element
-    # get the element on the top with stack.pop()
-    # add the hash160 of the element to the end of the stack
-    raise NotImplementedError
+    if len(stack) < 1:
+        return False
+    
+    element = stack.pop()
+    stack.append(hash160(element))
+    
+    return True
 
 
 def op_hash256(stack):
@@ -660,14 +663,18 @@ def op_hash256(stack):
 
 
 def op_checksig(stack, z):
-    # check to see if there's at least 2 elements
-    # get the sec_pubkey with stack.pop()
-    # get the der_signature with stack.pop()[:-1] (last byte is removed)
-    # parse the sec format pubkey with S256Point
-    # parse the der format signature with Signature
-    # verify using the point, z and signature
-    # if verified add encode_num(1) to the end, otherwise encode_num(0)
-    raise NotImplementedError
+    if len(stack) < 2:
+        return False
+    
+    sec_pubkey = stack.pop()
+    der_signature = stack.pop()[:-1]
+    point = S256Point.parse(sec_pubkey)
+    sig = Signature.parse(der_signature)
+    num = 1 if point.verify(z, sig) else 0
+    
+    stack.append(encode_num(num))
+    
+    return True
 
 
 def op_checksigverify(stack, z):

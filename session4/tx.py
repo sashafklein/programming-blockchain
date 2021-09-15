@@ -110,46 +110,65 @@ class Tx:
 
     def serialize(self):
         '''Returns the byte serialization of the transaction'''
-        # serialize version (4 bytes, little endian)
-        # encode_varint on the number of inputs
-        # iterate inputs
-            # serialize each input
-        # encode_varint on the number of outputs
-        # iterate outputs
-            # serialize each output
-        # serialize locktime (4 bytes, little endian)
-        raise NotImplementedError
+
+        result = int_to_little_endian(self.version, 4)
+        result += encode_varint(len(self.tx_ins))
+
+        for input in self.tx_ins:
+            result += input.serialize()
+
+        result += encode_varint(len(self.tx_outs))
+        for output in self.tx_outs:
+            result += output.serialize()
+        
+        result += int_to_little_endian(self.locktime, 4)
+        
+        return result
 
     def fee(self):
         '''Returns the fee of this transaction in satoshi'''
-        # initialize input sum and output sum
-        # iterate through inputs
-            # for each input get the value and add to input sum
-        # iterate through outputs
-            # for each output get the amount and add to output sum
-        # return input sum - output sum
-        raise NotImplementedError
+        in_sum = 0
+
+        # iterate over all inputs (tx_obj.tx_ins)
+        for tx_in in self.tx_ins:
+            in_sum += tx_in.value()
+
+        # initialize output sum
+        out_sum = 0
+
+        for tx_out in self.tx_outs:
+            out_sum += tx_out.amount
+
+        return in_sum - out_sum
 
     def sig_hash(self, input_index):
         '''Returns the integer representation of the hash that needs to get
         signed for index input_index'''
-        # start the serialization with version
-        # use int_to_little_endian in 4 bytes
-        # add how many inputs there are using encode_varint
-        # loop through each input using enumerate, so we have the input index
-            # if the input index is the one we're signing
-                # the previous tx's ScriptPubkey is the ScriptSig
-            # Otherwise, the ScriptSig is empty
-            # create a new TxIn with the same parameters
-            #  as tx_in, but change the script_sig
-            # add the serialization of the new TxIn
-        # add how many outputs there are using encode_varint
-        # add the serialization of each output
-        # add the locktime using int_to_little_endian in 4 bytes
-        # add SIGHASH_ALL using int_to_little_endian in 4 bytes
-        # hash256 the serialization
-        # convert the result to an integer using int.from_bytes(x, 'big')
-        raise NotImplementedError
+        result = int_to_little_endian(self.version, 4)
+        result += encode_varint(len(self.tx_ins))
+        for index, tx_in in enumerate(self.tx_ins):
+            if index == input_index:
+                script_sig = tx_in.script_pubkey()
+                prev_tx = tx_in.fetch_tx()
+            else:
+                script_sig = Script()
+            
+            new_tx_in = TxIn(tx_in.prev_tx, tx_in.prev_index, script_sig, tx_in.sequence)
+            
+            result += new_tx_in.serialize()
+        
+        result += encode_varint(len(self.tx_outs))
+        
+        for tx_out in self.tx_outs:
+            result += tx_out.serialize()
+        
+        result += int_to_little_endian(self.locktime, 4)
+        
+        result += int_to_little_endian(SIGHASH_ALL, 4)
+        
+        h256 = hash256(result)
+        
+        return int.from_bytes(h256, 'big')
 
 
 class TxIn:
@@ -185,11 +204,12 @@ class TxIn:
 
     def serialize(self):
         '''Returns the byte serialization of the transaction input'''
-        # serialize prev_tx, little endian
-        # serialize prev_index, 4 bytes, little endian
-        # serialize the script_sig
-        # serialize sequence, 4 bytes, little endian
-        raise NotImplementedError
+        result = self.prev_tx[::-1]
+        result += int_to_little_endian(self.prev_index, 4)
+        result += self.script_sig.serialize()
+        result += int_to_little_endian(self.sequence, 4)
+        
+        return result
 
     def fetch_tx(self, testnet=False):
         return TxFetcher.fetch(self.prev_tx.hex(), testnet=testnet)
@@ -198,19 +218,17 @@ class TxIn:
         '''Get the outpoint value by looking up the tx hash
         Returns the amount in satoshi
         '''
-        # use self.fetch_tx to get the transaction
-        # get the output at self.prev_index
-        # return the amount property
-        raise NotImplementedError
+        tx = self.fetch_tx(testnet=testnet)
+        output = tx.tx_outs[self.prev_index]
+        return output.amount
 
     def script_pubkey(self, testnet=False):
         '''Get the scriptPubKey by looking up the tx hash
         Returns a Script object
         '''
-        # use self.fetch_tx to get the transaction
-        # get the output at self.prev_index
-        # return the script_pubkey property
-        raise NotImplementedError
+        tx = self.fetch_tx(testnet=testnet)
+        output = tx.tx_outs[self.prev_index]
+        return output.script_pubkey
 
 
 class TxOut:
@@ -238,9 +256,7 @@ class TxOut:
 
     def serialize(self):
         '''Returns the byte serialization of the transaction output'''
-        # serialize amount, 8 bytes, little endian
-        # serialize the script_pubkey
-        raise NotImplementedError
+        return int_to_little_endian(self.amount, 8) + self.script_pubkey.serialize()
 
 
 class TxTest(TestCase):

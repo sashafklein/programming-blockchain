@@ -173,28 +173,37 @@ class Script:
     def is_p2pkh_script_pubkey(self):
         '''Returns whether this follows the
         OP_DUP OP_HASH160 <20 byte hash> OP_EQUALVERIFY OP_CHECKSIG pattern.'''
-        # there should be exactly 5 commands
-        # OP_DUP (0x76), OP_HASH160 (0xa9), 20-byte hash, OP_EQUALVERIFY (0x88),
-        # OP_CHECKSIG (0xac)
-        raise NotImplementedError
+        if len(self.commands) != 5:
+            return False
+        if self.commands[0] != 0x76:
+            return False
+        if self.commands[1] != 0xa9:
+            return False
+        if len(self.commands[2]) != 20:
+            return False
+        if self.commands[3] != 0x88:
+            return False
+        if self.commands[4] != 0xac:
+            return False
+        return True
+
 
     def is_p2sh_script_pubkey(self):
         '''Returns whether this follows the
         OP_HASH160 <20 byte hash> OP_EQUAL pattern.'''
-        # there should be exactly 3 commands
-        # OP_HASH160 (0xa9), 20-byte hash, OP_EQUAL (0x87)
-        raise NotImplementedError
+        return len(self.commands) == 3 and self.commands[0] == 0xa9 and type(self.commands[1] == bytes) and len(self.commands[1]) == 20 && self.commands[2] == 0x87
 
     def address(self, testnet=False):
         '''Returns the address corresponding to the script'''
         # if p2pkh
-            # hash160 is the 3rd command
-            # convert to p2pkh address using h160_to_p2pkh_address (remember testnet)
-        # if p2sh
-            # hash160 is the 2nd command
-            # convert to p2sh address using h160_to_p2sh_address (remember testnet)
-        # raise a ValueError
-        raise NotImplementedError
+        if self.is_p2pkh_script_pubkey():
+            h160 = self.commands[2]
+            return h160_to_p2pkh_address(h160, testnet=testnet)
+        elif self.is_p2sh_script_pubkey():
+            h160 = self.commands[1]
+            
+            return h160_to_p2sh_address(h160, testnet=testnet)
+        raise ValueError
 
 
 class ScriptTest(TestCase):

@@ -23,30 +23,53 @@ class Block:
         '''Takes a byte stream and parses a block. Returns a Block object'''
         # s.read(n) will read n bytes from the stream
         # version - 4 bytes, little endian, interpret as int
+        version = little_endian_to_int(s.read(4))
+        
         # prev_block - 32 bytes, little endian (use [::-1] to reverse)
+        prev_block = s.read(32)[::-1]
+        
         # merkle_root - 32 bytes, little endian (use [::-1] to reverse)
+        merkle_root = s.read(32)[::-1]
+        
         # timestamp - 4 bytes, little endian, interpret as int
+        timestamp = little_endian_to_int(s.read(4))
+        
         # bits - 4 bytes
+        bits = s.read(4)
+        
         # nonce - 4 bytes
-        # initialize class
-        raise NotImplementedError
+        nonce = s.read(4)
+        
+        return cls(version, prev_block, merkle_root, timestamp, bits, nonce)
 
     def serialize(self):
         '''Returns the 80 byte block header'''
         # version - 4 bytes, little endian
+        result = int_to_little_endian(self.version, 4)
+        
         # prev_block - 32 bytes, little endian
+        result += self.prev_block[::-1]
+        
         # merkle_root - 32 bytes, little endian
+        result += self.merkle_root[::-1]
+        
         # timestamp - 4 bytes, little endian
+        result += int_to_little_endian(self.timestamp, 4)
+        
         # bits - 4 bytes
+        result += self.bits
+        
         # nonce - 4 bytes
-        raise NotImplementedError
+        result += self.nonce
+        
+        return result
 
     def hash(self):
         '''Returns the hash256 interpreted little endian of the block'''
         # serialize
         # hash256
         # reverse
-        raise NotImplementedError
+        return hash256(self.serialize())[::-1]
 
     def id(self):
         '''Human-readable hexadecimal of the block hash'''
@@ -55,23 +78,33 @@ class Block:
     def target(self):
         '''Returns the proof-of-work target based on the bits'''
         # last byte is exponent
-        # the first three bytes are the coefficient in little endian
-        # the formula is:
-        # coefficient * 256**(exponent-3)
-        raise NotImplementedError
+        exp = self.bits[-1]
+
+        # first three bytes are the coefficient in little endian
+        coef = little_endian_to_int(self.bits[:-1])
+
+        # plug into formula coefficient * 256^(exponent-3) to get the target
+        return coef * 256 ** (exp - 3)
 
     def difficulty(self):
         '''Returns the block difficulty based on the bits'''
+        
         # note difficulty is (target of lowest difficulty) / (self's target)
         # lowest difficulty has bits that equal 0xffff001d
-        raise NotImplementedError
+        lowest = 0xffff * 256**(0x1d - 3)
+        return lowest / self.target()
 
     def check_pow(self):
         '''Returns whether this block satisfies proof of work'''
+
         # get the hash256 of the serialization of this block
+        hash = hash256(self.serialize())
+        
         # interpret this hash as a little-endian number
+        num = little_endian_to_int(hash)
+        
         # return whether this integer is less than the target
-        raise NotImplementedError
+        return num < self.target()
 
 
 class BlockTest(TestCase):

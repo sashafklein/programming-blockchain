@@ -66,9 +66,9 @@ def encode_base58(s):
 
 def encode_base58_checksum(raw):
     '''Takes bytes and turns it into base58 encoding with checksum'''
-    # checksum is the first 4 bytes of the hash256
-    # encode_base58 on the raw and the checksum
-    raise NotImplementedError
+    checksum = hash256(raw)[:4]
+
+    return encode_base58(raw + checksum)
 
 
 class HelperTest(TestCase):

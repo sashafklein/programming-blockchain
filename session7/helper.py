@@ -142,32 +142,46 @@ def h160_to_p2sh_address(h160, testnet=False):
 
 def merkle_parent(hash1, hash2):
     '''Takes the binary hashes and calculates the hash256'''
-    # return the hash256 of hash1 + hash2
-    raise NotImplementedError
+    return hash256(hash1 + hash2)
 
 
 def merkle_parent_level(hashes):
     '''Takes a list of binary hashes and returns a list that's half
     the length'''
     # if the list has exactly 1 element raise an error
+    if len(hashes) == 1:
+        raise RuntimeError
     # if the list has an odd number of elements, duplicate the last one
-    #       and put it at the end so it has an even number of elements
+    #       and put it at the end so it has an even number of elements    
+    if len(hashes) % 2 == 1:
+        hashes.append(hashes[-1])
+
     # initialize parent level
+    parent_level = []
+    
     # loop over every pair (use: for i in range(0, len(hashes), 2))
+    for i in range(0, len(hashes), 2):
         # get the merkle parent of i and i+1 hashes
         # append parent to parent level
+        parent_level.append(merkle_parent(hashes[i], hashes[i+1]))
+    
     # return parent level
-    raise NotImplementedError
+    return parent_level
 
 
 def merkle_root(hashes):
     '''Takes a list of binary hashes and returns the merkle root
     '''
     # current level starts as hashes
+    current_level = hashes
+    
     # loop until there's exactly 1 element
+    while len(current_level) > 1:
         # current level becomes the merkle parent level
+        current_level = merkle_parent_level(current_level)
+        
     # return the 1st item of current_level
-    raise NotImplementedError
+    return current_level[0]
 
 
 class HelperTest(TestCase):

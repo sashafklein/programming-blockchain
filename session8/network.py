@@ -434,20 +434,41 @@ class SimpleNode:
         '''Returns transactions that match the bloom filter'''
         from merkleblock import MerkleBlock
         # create a getdata message
+        msg = GetDataMessage()
+        
         # for each block request the filtered block
+        for bh in block_hashes:
             # add_data (FILTERED_BLOCK_DATA_TYPE, block_hash) to request the block
+            msg.add_data(FILTERED_BLOCK_DATA_TYPE, bh)
         # send the getdata message
+        self.send(msg)
+        
         # initialize the results array we'll send back
+        results = []
+        
         # for each block hash
+        for bh in block_hashes:
             # wait for the merkleblock command
+            mb = self.wait_for(MerkleBlock)
             # check that the merkle block's hash is the same as the block hash
+            if mb.hash() != bh:
+                raise RuntimeError
+                
             # check that the merkle block is valid
+            if not mb.is_valid():
+                raise RuntimeError
+                
             # loop through the proved transactions from the Merkle block
+            for tx_hash in mb.proved_txs():
                 # wait for the tx command
+                tx_obj = self.wait_for(Tx)
                 # check that the hash matches
+                if tx_obj.hash() != tx_hash:
+                    raise RuntimeError
                 # add to the results
+                results.append(tx_obj)
         # return the results
-        raise NotImplementedError
+        return results
 
 
 class SimpleNodeTest(TestCase):

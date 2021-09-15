@@ -25,49 +25,39 @@ class FieldElement:
     def __add__(self, other):
         if self.prime != other.prime:
             raise TypeError('Cannot add two numbers in different Fields')
-        # self.num and other.num are the actual values
-        # self.prime is what you'll need to mod against
-        # You need to return an element of the same class
-        # use: self.__class__(num, prime)
-        raise NotImplementedError
+        
+        num = (self.num + other.num) % self.prime
+        
+        return self.__class__(num, self.prime)
 
     def __sub__(self, other):
         if self.prime != other.prime:
             raise TypeError('Cannot add two numbers in different Fields')
-        # self.num and other.num are the actual values
-        # self.prime is what you'll need to mod against
-        # You need to return an element of the same class
-        # use: self.__class__(num, prime)
-        raise NotImplementedError
 
+        num = (self.num - other.num) % self.prime
+        
+        return self.__class__(num, self.prime)
+    
     def __mul__(self, other):
         if self.prime != other.prime:
             raise TypeError('Cannot add two numbers in different Fields')
-        # self.num and other.num are the actual values
-        # self.prime is what you'll need to mod against
-        # You need to return an element of the same class
-        # use: self.__class__(num, prime)
-        raise NotImplementedError
+        
+        num = self.num * other.num % self.prime
+
+        return self.__class__(num, self.prime)
 
     def __pow__(self, n):
-        # self.num is the base, n is the exponent
-        # self.prime is what you'll need to mod against
-        # use pow(base, exponent, prime) to calculate the number
-        # use: self.__class__(num, prime)
-        raise NotImplementedError
+        num = pow(self.num, n, self.prime)
+        
+        return self.__class__(num, self.prime)
 
     def __truediv__(self, other):
         if self.prime != other.prime:
             raise TypeError('Cannot add two numbers in different Fields')
-        # self.num and other.num are the actual values
-        # self.prime is what you'll need to mod against
-        # use fermat's little theorem:
-        # self.num**(p-1) % p == 1
-        # this means:
-        # 1/n == pow(n, p-2, p)
-        # You need to return an element of the same class
-        # use: self.__class__(num, prime)
-        raise NotImplementedError
+        
+        num = self.num * pow(other.num, -1, self.prime) % self.prime
+
+        return self.__class__(num, self.prime)
 
 
 class FieldElementTest(TestCase):
@@ -126,12 +116,16 @@ class Point:
         self.b = b
         self.x = x
         self.y = y
+        
+        if x == None and y == None:
+            return
         # Exercise 13: x being None and y being None represents the point at infinity
         # Exercise 13: Check for that here since the equation below won't make sense
         # Exercise 13: with None values for both.
-        # Exercise 12: make sure that the elliptic curve equation is satisfied
-        # y**2 == x**3 + a*x + b
-            # if not, raise a ValueError
+
+        if (y**2 != x**3 + 5*x + 7):
+            error = f'Point ({x},{y}) is not on the curve!'
+            raise ValueError(error)
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y \
@@ -150,28 +144,32 @@ class Point:
     def __add__(self, other):
         if self.a != other.a or self.b != other.b:
             raise TypeError(f'Points {self}, {other} are not on the same curve')
-        # Case 0.0: self is the point at infinity, return other
-        # Case 0.1: other is the point at infinity, return self
 
-        # Case 1: self.x == other.x, self.y != other.y
-        # Result is point at infinity
-            # Remember to return an instance of this class:
-            # self.__class__(x, y, a, b)
+        # Point at infinity (one None value implies other, post init)
+        if self.x is None:
+            return other
 
-        # Case 2: self.x != other.x
-            # Formula (x3,y3)==(x1,y1)+(x2,y2)
-            # s=(y2-y1)/(x2-x1)
-            # x3=s**2-x1-x2
-            # y3=s*(x1-x3)-y1
-            # use: self.__class__(x, y, self.a, self.b)
-
-        # Case 3: self == other
-            # Formula (x3,y3)=(x1,y1)+(x1,y1)
-            # s=(3*x1**2+a)/(2*y1)
-            # x3=s**2-2*x1
-            # y3=s*(x1-x3)-y1
-            # use: self.__class__(x, y, self.a, self.b)
-        raise NotImplementedError
+        # Point at infinity (one None value implies other, post init)
+        if other.x is None:
+            return self
+        
+        # Vertical line -- result of addition is point at infinity
+        if (self.x == other.x and self.y != other.y):
+            return self.__class__(None, None, self.a, self.b)
+        
+        if self.x != other.x:
+            slope = (other.y - self.y) / (other.x - self.x)
+            x = slope ** 2 - self.x - other.x
+            y = slope * (self.x - x) - self.y
+            
+            return self.__class__(x, y, self.a, self.b)
+        
+        if (self == other):
+            slope = (3 * self.x ** 2 + self.a) / (2 * self.y)
+            x  = slope ** 2 - 2 * self.x
+            y = slope * (self.x - x) - self.y
+            
+            return self.__class__(x, y, self.a, self.b)
 
 
 class PointTest(TestCase):
